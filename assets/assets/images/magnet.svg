@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="29.769" height="34.125" viewBox="0 0 29.769 34.125">
+  <g id="magnet" opacity="0.404">
+    <path id="Path_2429" data-name="Path 2429" d="M59.224,0H49.785a.545.545,0,0,0-.545.545v18.7a4.356,4.356,0,0,1-8.713,0V.545A.545.545,0,0,0,39.983,0H30.545A.545.545,0,0,0,30,.545v18.7a14.884,14.884,0,1,0,29.769,0V.545A.545.545,0,0,0,59.224,0ZM39.439,1.089V6.535h-8.35V1.089Zm5.445,31.947a13.811,13.811,0,0,1-13.8-13.8V7.624h8.35V19.241a5.445,5.445,0,0,0,10.891,0V7.624h4.538a.545.545,0,0,0,0-1.089H50.33V1.089h8.35V6.535H57.046a.545.545,0,1,0,0,1.089H58.68V19.241A13.811,13.811,0,0,1,44.884,33.036Z" transform="translate(-30 0)" fill="#fff"/>
+    <ellipse id="Ellipse_90" data-name="Ellipse 90" cx="0.545" cy="0.545" rx="0.545" ry="0.545" transform="translate(7.66 27.482)" fill="#fff"/>
+    <ellipse id="Ellipse_91" data-name="Ellipse 91" cx="0.545" cy="0.545" rx="0.545" ry="0.545" transform="translate(5.482 25.303)" fill="#fff"/>
+    <ellipse id="Ellipse_92" data-name="Ellipse 92" cx="0.545" cy="0.545" rx="0.545" ry="0.545" transform="translate(25.39 11.848)" fill="#fff"/>
+  </g>
+</svg>
