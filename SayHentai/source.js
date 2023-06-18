@@ -601,10 +601,10 @@ exports.SayHentai = exports.SayHentaiInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const tag_json_1 = __importDefault(require("./tag.json"));
 const SayHentaiParser_1 = require("./SayHentaiParser");
-const DOMAIN = 'https://sayhentai.net/';
+const DOMAIN = 'https://sayhentai.me/';
 const method = 'GET';
 exports.SayHentaiInfo = {
-    version: '2.0.1',
+    version: '2.0.2',
     name: 'SayHentai',
     icon: 'icon.png',
     author: 'Huynhzip3',

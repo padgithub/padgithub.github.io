@@ -597,10 +597,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.HentaiVL = exports.HentaiVLInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const HentaiVLParser_1 = require("./HentaiVLParser");
-const DOMAIN = 'https://hentaivl.com/';
+const DOMAIN = 'https://hentaivkl.com/';
 const method = 'GET';
 exports.HentaiVLInfo = {
-    version: '1.0.1',
+    version: '1.0.3',
     name: 'HentaiVL',
     icon: 'icon.png',
     author: 'Huynhzip3',
