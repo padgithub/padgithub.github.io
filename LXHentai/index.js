@@ -2398,10 +2398,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LXHentai = exports.LXHentaiInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const LXHentaiParser_1 = require("./LXHentaiParser");
-const DOMAIN = 'https://lxmanga.net/';
+const DOMAIN = 'https://lxhentai.com/';
 const method = 'GET';
 exports.LXHentaiInfo = {
-    version: '2.0.4',
+    version: '2.0.2',
     name: 'LXHentai',
     icon: 'icon.png',
     author: 'Huynhzip3',
