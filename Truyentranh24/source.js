@@ -603,7 +603,7 @@ exports.Truyentranh24Info = {
     version: '1.5.1',
     name: 'Truyentranh1',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from Truyentranh1',
     websiteBaseURL: DOMAIN,

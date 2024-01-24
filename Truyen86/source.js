@@ -2624,7 +2624,7 @@ exports.Truyen86Info = {
     version: '1.0.1',
     name: 'Truyen86',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from Truyen86',
     websiteBaseURL: `${DOMAIN}`,

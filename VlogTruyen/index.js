@@ -602,7 +602,7 @@ exports.VlogTruyenInfo = {
     version: '2.6.1',
     name: 'VlogTruyen',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from VlogTruyen',
     websiteBaseURL: `https://vlogtruyen3.com/`,

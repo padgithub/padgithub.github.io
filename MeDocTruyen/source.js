@@ -602,7 +602,7 @@ exports.MeDocTruyenInfo = {
     version: '2.5.1',
     name: 'MeDocTruyen',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from MeDocTruyen',
     websiteBaseURL: `https://m.medoctruyentranh.net/`,

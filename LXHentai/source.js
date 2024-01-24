@@ -2404,7 +2404,7 @@ exports.LXHentaiInfo = {
     version: '2.0.2',
     name: 'LXHentai',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from LXHentai',
     websiteBaseURL: DOMAIN,

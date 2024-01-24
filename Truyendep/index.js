@@ -603,7 +603,7 @@ exports.TruyendepInfo = {
     version: '2.4.1',
     name: 'Truyendep',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from Truyendep',
     websiteBaseURL: `${DOMAIN}`,

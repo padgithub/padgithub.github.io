@@ -603,7 +603,7 @@ exports.HentaiCubeInfo = {
     version: '2.7.1',
     name: 'HentaiCube',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from HentaiCube',
     websiteBaseURL: DOMAIN,

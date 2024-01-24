@@ -392,7 +392,7 @@ exports.TruyenChonInfo = {
     version: '3.0.1',
     name: 'TruyenChon',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from TruyenChon.',
     websiteBaseURL: DOMAIN,

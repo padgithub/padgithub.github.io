@@ -2624,7 +2624,7 @@ exports.TruyentranhtuanInfo = {
     version: '1.0.1',
     name: 'Truyentranhtuan',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from Truyentranhtuan',
     websiteBaseURL: DOMAIN,

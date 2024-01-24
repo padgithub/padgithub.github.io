@@ -603,7 +603,7 @@ exports.Doctruyen3QInfo = {
     version: '2.0.1',
     name: 'Doctruyen3Q',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.site/huynh12345678',
     description: 'Extension that pulls manga from Doctruyen3Q',
     websiteBaseURL: DOMAIN,

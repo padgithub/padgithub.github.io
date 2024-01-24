@@ -2624,7 +2624,7 @@ exports.ManhuaRockInfo = {
     version: '1.5.1',
     name: 'ManhuaRock',
     icon: 'icon.png',
-    author: 'Huynhzip3',
+    author: 'myde',
     authorWebsite: 'https://github.com/huynh12345678',
     description: 'Extension that pulls manga from ManhuaRock',
     websiteBaseURL: DOMAIN,
