@@ -2398,7 +2398,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LXHentai = exports.LXHentaiInfo = void 0;
 const paperback_extensions_common_1 = require("paperback-extensions-common");
 const LXHentaiParser_1 = require("./LXHentaiParser");
-const DOMAIN = 'https://lxhentai.com/';
+const DOMAIN = 'https://lxmanga.net/';
 const method = 'GET';
 exports.LXHentaiInfo = {
     version: '2.0.2',
@@ -2559,7 +2559,7 @@ class LXHentai extends paperback_extensions_common_1.Source {
             sectionCallback(hot);
             //New Updates
             let request = createRequestObject({
-                url: 'https://lxhentai.com/story/index.php',
+                url: 'https://lxmanga.net/story/index.php',
                 method: "GET",
             });
             let newUpdatedItems = [];
@@ -2587,7 +2587,7 @@ class LXHentai extends paperback_extensions_common_1.Source {
             sectionCallback(newUpdated);
             //Hot
             request = createRequestObject({
-                url: 'https://lxhentai.com/story/index.php?hot',
+                url: 'https://lxmanga.net/story/index.php?hot',
                 method: "GET",
             });
             let hotItems = [];
@@ -2615,7 +2615,7 @@ class LXHentai extends paperback_extensions_common_1.Source {
             sectionCallback(hot);
             //Featured
             request = createRequestObject({
-                url: 'https://lxhentai.com/',
+                url: 'https://lxmanga.net/',
                 method: "GET",
             });
             let featuredItems = [];
@@ -2651,10 +2651,10 @@ class LXHentai extends paperback_extensions_common_1.Source {
             let url = '';
             switch (homepageSectionId) {
                 case "hot":
-                    url = `https://lxhentai.com/story/index.php?hot&p=${page}`;
+                    url = `https://lxmanga.net/story/index.php?hot&p=${page}`;
                     break;
                 case "new_updated":
-                    url = `https://lxhentai.com/story/index.php?p=${page}`;
+                    url = `https://lxmanga.net/story/index.php?p=${page}`;
                     break;
                 default:
                     return Promise.resolve(createPagedResults({ results: [] }));
@@ -2681,7 +2681,7 @@ class LXHentai extends paperback_extensions_common_1.Source {
             let page = (_a = metadata === null || metadata === void 0 ? void 0 : metadata.page) !== null && _a !== void 0 ? _a : 1;
             const tags = (_c = (_b = query.includedTags) === null || _b === void 0 ? void 0 : _b.map(tag => tag.id)) !== null && _c !== void 0 ? _c : [];
             const request = createRequestObject({
-                url: query.title ? `https://lxhentai.com/story/search.php?key=${encodeURI(query.title)}&p=${page}` : `${tags[0]}&p=${page}`,
+                url: query.title ? `https://lxmanga.net/story/search.php?key=${encodeURI(query.title)}&p=${page}` : `${tags[0]}&p=${page}`,
                 method: "GET",
             });
             const data = yield this.requestManager.schedule(request, 1);
@@ -2698,7 +2698,7 @@ class LXHentai extends paperback_extensions_common_1.Source {
     getSearchTags() {
         var _a;
         return __awaiter(this, void 0, void 0, function* () {
-            const url = `https://lxhentai.com/`;
+            const url = `https://lxmanga.net/`;
             const request = createRequestObject({
                 url: url,
                 method: "GET",
