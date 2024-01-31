@@ -459,21 +459,293 @@ __exportStar(require("./compat/DyamicUI"), exports);
 
 },{"./base/index":7,"./compat/DyamicUI":16,"./generated/_exports":60}],62:[function(require,module,exports){
 "use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Main = exports.getExportVersion = exports.TelegramApi = exports.TelegramEndpoint = exports.DOMAIN = void 0;
+const time_1 = require("./utils/time");
+exports.DOMAIN = 'https://hoang3409.link/api/';
+exports.TelegramEndpoint = 'https://api.telegram.org/';
+exports.TelegramApi = '6458222681:AAEy9Q-qHskCvymzy3JYWxu-uM1jdC16cdk';
+const BASE_VERSION = '1.7.0';
+const getExportVersion = (EXTENSION_VERSION) => {
+    return BASE_VERSION.split('.').map((x, index) => Number(x) + Number(EXTENSION_VERSION.split('.')[index])).join('.');
+};
+exports.getExportVersion = getExportVersion;
+class Main {
+    constructor(cheerio) {
+        this.cheerio = cheerio;
+        this.requestsPerSecond = 5;
+        this.requestTimeout = 20000;
+        this.requestManager = App.createRequestManager({
+            requestsPerSecond: this.requestsPerSecond,
+            requestTimeout: this.requestTimeout,
+            interceptor: {
+                interceptRequest: async (request) => {
+                    request.headers = {
+                        ...(request.headers ?? {}),
+                        ...{
+                            'referer': this.HostDomain
+                        }
+                    };
+                    return request;
+                },
+                interceptResponse: async (response) => {
+                    return response;
+                }
+            }
+        });
+        this.stateManager = App.createSourceStateManager();
+    }
+    async getHomePageSections(sectionCallback) {
+        const sections = [];
+        sections.push(App.createHomeSection({
+            id: 'new',
+            title: 'Mới thêm',
+            containsMoreItems: true,
+            type: ''
+        }));
+        const promises = [];
+        for (const section of sections) {
+            // Let the app load empty tagSections
+            sectionCallback(section);
+            let apiPath, params;
+            switch (section.id) {
+                default:
+                    apiPath = `${exports.DOMAIN}AnimeMoi`;
+                    params = `?host=${this.Host}&page=1`;
+                    break;
+            }
+            const request = App.createRequest({
+                url: apiPath,
+                param: params,
+                method: 'GET'
+            });
+            // Get the section data
+            const response = await this.requestManager.schedule(request, 1);
+            const result = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+            const items = [];
+            for (const item of result) {
+                items.push(App.createPartialSourceManga({
+                    title: item.titles[0],
+                    image: item.cover,
+                    mangaId: this.UseId ? item.id.toString() : item.url,
+                    subtitle: undefined
+                }));
+            }
+            section.items = items;
+            sectionCallback(section);
+        }
+        await Promise.all(promises);
+    }
+    async getViewMoreItems(homepageSectionId, metadata) {
+        const page = metadata?.page ?? 1;
+        const request = App.createRequest({
+            url: `${exports.DOMAIN}AnimeMoi`,
+            param: `?host=${this.Host}&page=${page}`,
+            method: 'GET'
+        });
+        const data = await this.requestManager.schedule(request, 1);
+        const result = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
+        const items = [];
+        for (const item of result) {
+            items.push(App.createPartialSourceManga({
+                title: item.titles[0],
+                image: item.cover,
+                mangaId: this.UseId ? item.id.toString() : item.url,
+                subtitle: undefined
+            }));
+        }
+        // If no series were returned we are on the last page
+        metadata = items.length === 0 ? undefined : { page: page + 1 };
+        return App.createPagedResults({
+            results: items,
+            metadata: metadata
+        });
+    }
+    async getMangaDetails(mangaId) {
+        const request = App.createRequest({
+            url: `${exports.DOMAIN}AnimeMoi/Manga?idComic=${mangaId}&host=${this.Host}`,
+            method: 'GET'
+        });
+        const response = await this.requestManager.schedule(request, 1);
+        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        const titles = [];
+        const tags = [];
+        for (const item of data.titles) {
+            titles.push(item);
+        }
+        if (data.genres) {
+            for (const item of data.genres) {
+                const foundGenre = this.Tags.find((genre) => genre.Id === item.toString());
+                if (foundGenre) {
+                    tags.push(App.createTag({
+                        id: foundGenre.Id,
+                        label: foundGenre.Name
+                    }));
+                }
+            }
+        }
+        return App.createSourceManga({
+            id: mangaId,
+            mangaInfo: App.createMangaInfo({
+                desc: data.description || 'Đang cập nhật',
+                image: data.cover,
+                status: data.status == 2 ? 'Đang cập nhật' : 'Xong',
+                titles: titles,
+                author: data.author ?? 'Đang cập nhật',
+                artist: undefined,
+                tags: [App.createTagSection({ label: 'genres', tags: tags, id: '0' })]
+            })
+        });
+    }
+    async getChapters(mangaId) {
+        const request = App.createRequest({
+            url: `${exports.DOMAIN}AnimeMoi/Chapter`,
+            param: `?idComic=${mangaId}&host=${this.Host}`,
+            method: 'GET'
+        });
+        const response = await this.requestManager.schedule(request, 1);
+        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        const chapters = [];
+        for (const item of data) {
+            const time = (0, time_1.convertTime)(item.timeUpdate);
+            time.setHours(time.getHours() + 7);
+            chapters.push(App.createChapter({
+                id: this.UseId ? item.id.toString() : item.url,
+                chapNum: item.numChap ?? item.chapNumber,
+                name: item.title,
+                time: time
+            }));
+        }
+        return chapters;
+    }
+    async getChapterDetails(mangaId, chapterId) {
+        const request = App.createRequest({
+            url: `${exports.DOMAIN}AnimeMoi/ChapterDetail`,
+            param: `?idChapter=${chapterId}&host=${this.Host}`,
+            method: 'GET'
+        });
+        const response = await this.requestManager.schedule(request, 1);
+        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        const imagePromises = data.map(async (image) => {
+            let img = image.toString();
+            if (img.startsWith('//')) {
+                img = 'https:' + img;
+            }
+            img = img.replace('http:', 'https:');
+            if (!img.includes('http')) {
+                return await this.getLinkImage(img);
+            }
+            return img;
+        });
+        const images = await Promise.all(imagePromises);
+        return App.createChapterDetails({
+            id: chapterId,
+            mangaId: mangaId,
+            pages: images
+        });
+    }
+    async getSearchResults(query, metadata) {
+        const page = metadata?.page ?? 1;
+        const postData = {
+            query: '',
+            page: page,
+            genres: [],
+            exclude: [],
+            status: 0
+        };
+        if (query.title) {
+            postData.query = encodeURIComponent(query.title);
+        }
+        if (query.includedTags[0]) {
+            query.includedTags.forEach((genre) => {
+                postData.genres.push(genre.id);
+            });
+        }
+        if (query.excludedTags[0]) {
+            query.excludedTags.forEach((genre) => {
+                postData.exclude.push(genre.id);
+            });
+        }
+        const request = App.createRequest({
+            method: 'POST',
+            url: `${exports.DOMAIN}AnimeMoi/Search?host=${this.Host}`,
+            data: postData,
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        const response = await this.requestManager.schedule(request, 1);
+        const result = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        const tiles = [];
+        result.forEach((item) => {
+            tiles.push(App.createPartialSourceManga({
+                title: item.titles[0],
+                image: item.cover,
+                mangaId: this.UseId ? item.id.toString() : item.url,
+                subtitle: undefined
+            }));
+        });
+        metadata = tiles.length === 0 ? undefined : { page: page + 1 };
+        return App.createPagedResults({
+            results: tiles,
+            metadata
+        });
+    }
+    async getSearchTags() {
+        const result = [];
+        const tags = this.Tags.map((x) => App.createTag({
+            id: x.Id.toString(),
+            label: x.Name
+        }));
+        let label = 'Thể loại';
+        if (this.SearchWithGenres) {
+            label += ' - Có thể tìm kiếm với nhiều thể loại';
+        }
+        else {
+            label += ' - Chỉ có thể tìm kiếm với 1 thể loại';
+        }
+        if (this.SearchWithTitleAndGenre) {
+            label += '- Có thể tìm kiếm với tên truyện cùng với thể loại';
+        }
+        else {
+            label += '- Không thể tìm kiếm cùng lúc tên truyện và thể loại';
+        }
+        result.push(App.createTagSection({
+            id: '0',
+            label: label,
+            tags: tags
+        }));
+        return result;
+    }
+    async getLinkImage(id) {
+        const request = App.createRequest({
+            url: `${exports.TelegramEndpoint}bot${exports.TelegramApi}/getFile?file_id=${id}`,
+            method: 'GET'
+        });
+        const response = await this.requestManager.schedule(request, 0);
+        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
+        return `${exports.TelegramEndpoint}file/bot${exports.TelegramApi}/${data.result.file_path}`;
+    }
+}
+exports.Main = Main;
+
+},{"./utils/time":65}],63:[function(require,module,exports){
+"use strict";
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.HentaiVN = exports.HentaiVNInfo = void 0;
+exports.Yurineko = exports.YurinekoInfo = void 0;
 const types_1 = require("@paperback/types");
 const Main_1 = require("../Main");
-const HOST = 'HentaiVN';
+const HOST = 'Yurineko';
 const tags_json_1 = __importDefault(require("./tags.json"));
-exports.HentaiVNInfo = {
+exports.YurinekoInfo = {
     description: '',
     icon: 'icon.png',
     websiteBaseURL: '',
-    version: (0, Main_1.getExportVersion)('0.0.4'),
-    name: 'HentaiVN',
+    version: (0, Main_1.getExportVersion)('0.0.3'),
+    name: 'Yurineko',
     language: 'vi',
     author: 'Hoang3409',
     contentRating: types_1.ContentRating.ADULT,
@@ -481,34 +753,311 @@ exports.HentaiVNInfo = {
         {
             text: '18+',
             type: types_1.BadgeColor.RED
+        },
+        {
+            text: '16+',
+            type: types_1.BadgeColor.GREEN
         }
     ],
     intents: types_1.SourceIntents.HOMEPAGE_SECTIONS | types_1.SourceIntents.MANGA_CHAPTERS
 };
-const Domain = 'hentaivn.tv';
-class HentaiVN extends Main_1.Main {
+const Domain = 'yurineko.net';
+class Yurineko extends Main_1.Main {
     constructor() {
         super(...arguments);
         this.Host = HOST;
         this.Tags = tags_json_1.default;
-        this.HostDomain = `https://${Domain}.tv/`;
+        this.HostDomain = `https://${Domain}/`;
         this.UseId = true;
         this.SearchWithGenres = true;
         this.SearchWithNotGenres = false;
         this.SearchWithTitleAndGenre = true;
     }
-    async getChapterDetails(mangaId, chapterId) {
-        const data = await super.getChapterDetails(mangaId, chapterId);
-        for (let img in data) {
-            img = img.replace('hhentai.net', Domain);
-        }
-        return data;
-    }
 }
-exports.HentaiVN = HentaiVN;
+exports.Yurineko = Yurineko;
 
-},{"../Main":64,"./tags.json":63,"@paperback/types":61}],63:[function(require,module,exports){
+},{"../Main":62,"./tags.json":64,"@paperback/types":61}],64:[function(require,module,exports){
 module.exports=[
+    {
+        "Id": "1",
+        "Name": "Action",
+        "Description": "Thể loại này thường có nội dung về đánh nhau, bạo lực, hỗn loạn, với diễn biến nhanh"
+    },
+    {
+        "Id": "2",
+        "Name": "Adult",
+        "Description": "Thể loại Adult đề cập đến vấn đề nhạy cảm, chỉ dành cho tuổi 17+"
+    },
+    {
+        "Id": "3",
+        "Name": "Adventure",
+        "Description": "Thể loại phiêu lưu, mạo hiểm, thường là hành trình của các nhân vật"
+    },
+    {
+        "Id": "4",
+        "Name": "Anime",
+        "Description": "Truyện đã được chuyển thể thành film Anime"
+    },
+    {
+        "Id": "5",
+        "Name": "Chuyển Sinh",
+        "Description": "Thể loại này là những câu chuyện về người ở một thế giới này xuyên đến một thế giới khác, có thể là thế giới mang phong cách trung cổ với kiếm sĩ và ma thuật, hay thế giới trong game, hoặc có thể là bạn chết ở nơi này và được chuyển sinh đến nơi khác"
+    },
+    {
+        "Id": "6",
+        "Name": "Comedy",
+        "Description": "Thể loại có nội dung trong sáng và cảm động, thường có các tình tiết gây cười, các xung đột nhẹ nhàng"
+    },
+    {
+        "Id": "7",
+        "Name": "Comic",
+        "Description": "Truyện tranh Châu Âu và Châu Mĩ"
+    },
+    {
+        "Id": "8",
+        "Name": "Cooking",
+        "Description": "Thể loại có nội dung về nấu ăn, ẩm thực"
+    },
+    {
+        "Id": "9",
+        "Name": "Cổ Đại",
+        "Description": "Truyện có nội dung xảy ra ở thời cổ đại phong kiến."
+    },
+    {
+        "Id": "10",
+        "Name": "Doujinshi",
+        "Description": "Thể loại truyện phóng tác do fan hay có thể cả những Mangaka khác với tác giả truyện gốc. Tác giả vẽ Doujinshi thường dựa trên những nhân vật gốc để viết ra những câu chuyện theo sở thích của mình"
+    },
+    {
+        "Id": "11",
+        "Name": "Drama",
+        "Description": "Thể loại mang đến cho người xem những cảm xúc khác nhau: buồn bã, căng thẳng thậm chí là bi phẫn"
+    },
+    {
+        "Id": "12",
+        "Name": "Đam Mỹ",
+        "Description": "Truyện tình cảm giữa nam và nam."
+    },
+    {
+        "Id": "13",
+        "Name": "Ecchi",
+        "Description": "Thường có những tình huống nhạy cảm nhằm lôi cuốn người xem"
+    },
+    {
+        "Id": "14",
+        "Name": "Fantasy",
+        "Description": "Thể loại xuất phát từ trí tưởng tượng phong phú, từ pháp thuật đến thế giới trong mơ thậm chí là những câu chuyện thần tiên"
+    },
+    {
+        "Id": "15",
+        "Name": "Gender Bender",
+        "Description": "Là một thể loại trong đó giới tính của nhân vật bị lẫn lộn: nam hoá thành nữ, nữ hóa thành nam..."
+    },
+    {
+        "Id": "16",
+        "Name": "Harem",
+        "Description": "Thể loại truyện tình cảm, lãng mạn mà trong đó, nhiều nhân vật nữ thích một nam nhân vật chính"
+    },
+    {
+        "Id": "17",
+        "Name": "Lịch sử",
+        "Description": "Thể loại liên quan đến lịch sử"
+    },
+    {
+        "Id": "18",
+        "Name": "Horror",
+        "Description": "Horror là: rùng rợn, nghe cái tên là bạn đã hiểu thể loại này có nội dung thế nào. Nó làm cho bạn kinh hãi, khiếp sợ, ghê tởm, run rẩy, có thể gây sock - một thể loại không dành cho người yếu tim"
+    },
+    {
+        "Id": "19",
+        "Name": "Josei",
+        "Description": "Thể loại của manga hay anime được sáng tác chủ yếu bởi phụ nữ cho những độc giả nữ từ 18 đến 30. Josei manga có thể miêu tả những lãng mạn thực tế , nhưng trái ngược với hầu hết các kiểu lãng mạn lí tưởng của Shoujo manga với cốt truyện rõ ràng, chín chắn"
+    },
+    {
+        "Id": "20",
+        "Name": "Live action",
+        "Description": "Truyện đã được chuyển thể thành phim"
+    },
+    {
+        "Id": "21",
+        "Name": "Manga",
+        "Description": "Truyện tranh của Nhật Bản"
+    },
+    {
+        "Id": "22",
+        "Name": "Manhua",
+        "Description": "Truyện tranh của Trung Quốc"
+    },
+    {
+        "Id": "23",
+        "Name": "Manhwa",
+        "Description": "Truyện tranh Hàn Quốc, đọc từ trái sang phải"
+    },
+    {
+        "Id": "24",
+        "Name": "Martial Arts",
+        "Description": "Giống với tên gọi, bất cứ gì liên quan đến võ thuật trong truyện từ các trận đánh nhau, tự vệ đến các môn võ thuật như akido, karate, judo hay taekwondo, kendo, các cách né tránh"
+    },
+    {
+        "Id": "25",
+        "Name": "Mature",
+        "Description": "Thể loại dành cho lứa tuổi 17+ bao gồm các pha bạo lực, máu me, chém giết, tình dục ở mức độ vừa"
+    },
+    {
+        "Id": "26",
+        "Name": "Mecha",
+        "Description": "Mecha, còn được biết đến dưới cái tên meka hay mechs, là thể loại nói tới những cỗ máy biết đi (thường là do phi công cầm lái)"
+    },
+    {
+        "Id": "27",
+        "Name": "Mystery",
+        "Description": "Thể loại thường xuất hiện những điều bí ấn không thể lí giải được và sau đó là những nỗ lực của nhân vật chính nhằm tìm ra câu trả lời thỏa đáng"
+    },
+    {
+        "Id": "28",
+        "Name": "Ngôn Tình",
+        "Description": "Truyện thuộc kiểu lãng mạn, kể về những sự kiện vui buồn trong tình yêu của nhân vật chính."
+    },
+    {
+        "Id": "29",
+        "Name": "One shot",
+        "Description": "Những truyện ngắn, thường là 1 chapter"
+    },
+    {
+        "Id": "30",
+        "Name": "Psychological",
+        "Description": "Thể loại liên quan đến những vấn đề về tâm lý của nhân vật ( tâm thần bất ổn, điên cuồng ...)"
+    },
+    {
+        "Id": "31",
+        "Name": "Romance",
+        "Description": "Thường là những câu chuyện về tình yêu, tình cảm lãng mạn. Ớ đây chúng ta sẽ lấy ví dụ như tình yêu giữa một người con trai và con gái, bên cạnh đó đặc điểm thể loại này là kích thích trí tưởng tượng của bạn về tình yêu"
+    },
+    {
+        "Id": "32",
+        "Name": "School Life",
+        "Description": "Trong thể loại này, ngữ cảnh diễn biến câu chuyện chủ yếu ở trường học"
+    },
+    {
+        "Id": "33",
+        "Name": "Sci-fi",
+        "Description": "Bao gồm những chuyện khoa học viễn tưởng, đa phần chúng xoay quanh nhiều hiện tượng mà liên quan tới khoa học, công nghệ, tuy vậy thường thì những câu chuyện đó không gắn bó chặt chẽ với các thành tựu khoa học hiện thời, mà là do con người tưởng tượng ra"
+    },
+    {
+        "Id": "34",
+        "Name": "Seinen",
+        "Description": "Thể loại của manga thường nhằm vào những đối tượng nam 18 đến 30 tuổi, nhưng người xem có thể lớn tuổi hơn, với một vài bộ truyện nhắm đến các doanh nhân nam quá 40. Thể loại này có nhiều phong cách riêng biệt , nhưng thể loại này có những nét riêng biệt, thường được phân vào những phong cách nghệ thuật rộng hơn và phong phú hơn về chủ đề, có các loại từ mới mẻ tiên tiến đến khiêu dâm"
+    },
+    {
+        "Id": "35",
+        "Name": "Shoujo",
+        "Description": "Đối tượng hướng tới của thể loại này là phái nữ. Nội dung của những bộ manga này thường liên quan đến tình cảm lãng mạn, chú trọng đầu tư cho nhân vật (tính cách,...)"
+    },
+    {
+        "Id": "36",
+        "Name": "Shoujo Ai",
+        "Description": "Thể loại quan hệ hoặc liên quan tới đồng tính nữ, thể hiện trong các mối quan hệ trên mức bình thường giữa các nhân vật nữ trong các manga, anime"
+    },
+    {
+        "Id": "37",
+        "Name": "Shounen",
+        "Description": "Đối tượng hướng tới của thể loại này là phái nam. Nội dung của những bộ manga này thường liên quan đến đánh nhau và/hoặc bạo lực (ở mức bình thường, không thái quá)"
+    },
+    {
+        "Id": "38",
+        "Name": "Shounen Ai",
+        "Description": "Thể loại có nội dung về tình yêu giữa những chàng trai trẻ, mang tính chất lãng mạn nhưng ko đề cập đến quan hệ tình dục"
+    },
+    {
+        "Id": "39",
+        "Name": "Slice of Life",
+        "Description": "Nói về cuộc sống đời thường"
+    },
+    {
+        "Id": "40",
+        "Name": "Smut",
+        "Description": "Những truyện có nội dung hơi nhạy cảm, đặc biệt là liên quan đến tình dục"
+    },
+    {
+        "Id": "41",
+        "Name": "Soft Yaoi",
+        "Description": "Boy x Boy. Nặng hơn Shounen Ai tí."
+    },
+    {
+        "Id": "42",
+        "Name": "Soft Yuri",
+        "Description": "Girl x Girl. Nặng hơn Shoujo Ai tí"
+    },
+    {
+        "Id": "43",
+        "Name": "Sports",
+        "Description": "Đúng như tên gọi, những môn thể thao như bóng đá, bóng chày, bóng chuyền, đua xe, cầu lông,... là một phần của thể loại này"
+    },
+    {
+        "Id": "44",
+        "Name": "Supernatural",
+        "Description": "Thể hiện những sức mạnh đáng kinh ngạc và không thể giải thích được, chúng thường đi kèm với những sự kiện trái ngược hoặc thách thức với những định luật vật lý"
+    },
+    {
+        "Id": "45",
+        "Name": "Tạp chí truyện tranh",
+        "Description": "Tạp chí online về manga anime v.v.."
+    },
+    {
+        "Id": "46",
+        "Name": "Thiếu Nhi",
+        "Description": "Truyện tranh dành cho lứa tuổi thiếu nhi"
+    },
+    {
+        "Id": "47",
+        "Name": "Tragedy",
+        "Description": "Thể loại chứa đựng những sự kiện mà dẫn đến kết cục là những mất mát hay sự rủi ro to lớn"
+    },
+    {
+        "Id": "48",
+        "Name": "Trinh Thám",
+        "Description": "Các truyện có nội dung về các vụ án, các thám tử cảnh sát điều tra..."
+    },
+    {
+        "Id": "49",
+        "Name": "Truyện Màu",
+        "Description": "Tổng hợp truyện tranh màu, rõ, đẹp"
+    },
+    {
+        "Id": "50",
+        "Name": "Truyện scan",
+        "Description": "Các truyện đã phát hành tại VN được scan đăng online"
+    },
+    {
+        "Id": "51",
+        "Name": "Việt Nam",
+        "Description": "Truyện tranh Việt Nam"
+    },
+    {
+        "Id": "52",
+        "Name": "Webtoon",
+        "Description": "Là truyện tranh được đăng dài kỳ trên internet của Hàn Quốc chứ không xuất bản theo cách thông thường"
+    },
+    {
+        "Id": "53",
+        "Name": "Xuyên Không",
+        "Description": "Xuyên Không, Xuyên Việt là thể loại nhân vật chính vì một lý do nào đó mà bị đưa đến sinh sống ở một không gian hay một khoảng thời gian khác. Nhân vật chính có thể trực tiếp xuyên qua bằng thân xác mình hoặc sống lại bằng thân xác người khác."
+    },
+    {
+        "Id": "54",
+        "Name": "Yaoi",
+        "Description": "Truyện tranh đồng tính nam có nói về quan hệ thể xác, chia 2 cấp Soft Yaoi và Hard Yaoi (Nhẹ và Nặng)"
+    },
+    {
+        "Id": "55",
+        "Name": "Yuri",
+        "Description": "Truyện tranh đồng tính nữ có nói về quan hệ thể xác, cũng có 2 cấp Soft Yuri và Hard Yuri"
+    },
+    {
+        "Id": "56",
+        "Name": "16+",
+        "Description": "Là thể loại có nhiều cảnh nóng, đề cập đến các vấn đề nhạy cảm giới tính hay các cảnh bạo lực máu me .... Nói chung là truyện có tác động xấu đến tâm sinh lý của những độc giả chưa đủ 16 tuổi"
+    },
     {
         "Id": "57",
         "Name": "3D Hentai",
@@ -1358,282 +1907,610 @@ module.exports=[
         "Id": "226",
         "Name": "Zombie",
         "Description": "Xác sống."
+    },
+    {
+        "Id": "227",
+        "Name": "Game",
+        "Description": ""
+    },
+    {
+        "Id": "228",
+        "Name": "Military",
+        "Description": "Quân sự"
+    },
+    {
+        "Id": "229",
+        "Name": "Music",
+        "Description": "Âm nhạc"
+    },
+    {
+        "Id": "230",
+        "Name": "Parody",
+        "Description": ""
+    },
+    {
+        "Id": "231",
+        "Name": "Slice of  Life",
+        "Description": "Đời thường"
+    },
+    {
+        "Id": "232",
+        "Name": "Violence",
+        "Description": "Bạo lực"
+    },
+    {
+        "Id": "233",
+        "Name": "Adult Life",
+        "Description": "Cuộc sống trưởng thành"
+    },
+    {
+        "Id": "234",
+        "Name": "College",
+        "Description": "Đại học"
+    },
+    {
+        "Id": "235",
+        "Name": "4-koma",
+        "Description": "Wiki đi bạn: https://vi.wikipedia.org/wiki/Yonkoma"
+    },
+    {
+        "Id": "236",
+        "Name": "No Text",
+        "Description": "Truyện không lời"
+    },
+    {
+        "Id": "237",
+        "Name": "Hints",
+        "Description": "Những bộ có cảnh gái với nhau trông rất ngon, nhưng không có ẩn ý gì cả. Khác với tag Subtext"
+    },
+    {
+        "Id": "238",
+        "Name": "Lỗi: không tìm thấy trai",
+        "Description": "Cho những bộ hoàn toàn không có sự xuất hiện của con trai."
+    },
+    {
+        "Id": "239",
+        "Name": "Blushing",
+        "Description": "Đỏ mặt"
+    },
+    {
+        "Id": "240",
+        "Name": "Reversal",
+        "Description": "Lật kèo đó"
+    },
+    {
+        "Id": "241",
+        "Name": "Het",
+        "Description": "Đầy đủ là Hetero, quan hệ dị tính nam x nữ."
+    },
+    {
+        "Id": "242",
+        "Name": "Excuse me WTF?",
+        "Description": "Xin lỗi, tôi đang đọc cái quái gì vậy??"
+    },
+    {
+        "Id": "243",
+        "Name": "Pay for Gay",
+        "Description": "Trả tiền để được gay"
+    },
+    {
+        "Id": "244",
+        "Name": "FBI Warning!!",
+        "Description": ""
+    },
+    {
+        "Id": "245",
+        "Name": "Moe Paradise",
+        "Description": "Thiên đường moe.Như cái cách mà bạn có thể truy cập yurineko bằng địa chỉ yune.moe vậy"
+    },
+    {
+        "Id": "246",
+        "Name": "Science Babies",
+        "Description": ""
+    },
+    {
+        "Id": "247",
+        "Name": "Student x Teacher",
+        "Description": "Giáo viên x Học sinh"
+    },
+    {
+        "Id": "248",
+        "Name": "Mahou Shoujo",
+        "Description": "Ma pháp thiếu nữ"
+    },
+    {
+        "Id": "249",
+        "Name": "Yankee",
+        "Description": "yang hồ"
+    },
+    {
+        "Id": "250",
+        "Name": "Maid",
+        "Description": "Hầu gái"
+    },
+    {
+        "Id": "251",
+        "Name": "Monster Girl",
+        "Description": "Géi quái vật"
+    },
+    {
+        "Id": "252",
+        "Name": "Office Lady",
+        "Description": "Nữ nhân viên văn phòng"
+    },
+    {
+        "Id": "253",
+        "Name": "Animal Ears",
+        "Description": "Tag cho những bộ có gái tai thú"
+    },
+    {
+        "Id": "254",
+        "Name": "Bisexual",
+        "Description": ""
+    },
+    {
+        "Id": "255",
+        "Name": "Age Gap",
+        "Description": "Chêch lệch tuổi tác"
+    },
+    {
+        "Id": "256",
+        "Name": "Co-worker",
+        "Description": "Đồng nghiệp"
+    },
+    {
+        "Id": "257",
+        "Name": "Roommates",
+        "Description": "Bạn cùng phòng"
+    },
+    {
+        "Id": "258",
+        "Name": "Childhood Friends",
+        "Description": "Bạn từ bé"
+    },
+    {
+        "Id": "259",
+        "Name": "Love Triangle",
+        "Description": "Tam giác tình yêu"
+    },
+    {
+        "Id": "260",
+        "Name": "Threesome",
+        "Description": "Chơi 3"
+    },
+    {
+        "Id": "261",
+        "Name": "Polyamory",
+        "Description": "Mối quan hệ nhiều hơn 2 người không chỉ dựa trên tình dục, nghĩa là mối quan hệ tình cảm nhiều hơn 2 người và được những người ở trong mối quan hệ đồng thuận."
+    },
+    {
+        "Id": "262",
+        "Name": "Marriage",
+        "Description": "Kết hôn"
+    },
+    {
+        "Id": "263",
+        "Name": "Christmas",
+        "Description": "Giáng sinh"
+    },
+    {
+        "Id": "264",
+        "Name": "Halloween",
+        "Description": "Ngày Halloween"
+    },
+    {
+        "Id": "265",
+        "Name": "New Year's",
+        "Description": "Năm mới"
+    },
+    {
+        "Id": "266",
+        "Name": "Valentine",
+        "Description": "Ngày Valentine"
+    },
+    {
+        "Id": "267",
+        "Name": "Thất Tịch",
+        "Description": "Ngày lễ Thất Tịch"
+    },
+    {
+        "Id": "268",
+        "Name": "Birthday",
+        "Description": "Sinh nhật"
+    },
+    {
+        "Id": "269",
+        "Name": "Big Breasts",
+        "Description": "Ngực to, tôi cũng thích Big Breasts."
+    },
+    {
+        "Id": "270",
+        "Name": "Butts",
+        "Description": "Dành cho những bộ tập trung vào vẻ đẹp của mông.Nhân tiện, tôi thích mông."
+    },
+    {
+        "Id": "271",
+        "Name": "Loli",
+        "Description": ""
+    },
+    {
+        "Id": "272",
+        "Name": "Netorare",
+        "Description": ""
+    },
+    {
+        "Id": "273",
+        "Name": "Toys",
+        "Description": "Đồ chơi, nhưng ở đây không dành cho trẻ em"
+    },
+    {
+        "Id": "274",
+        "Name": "Massage",
+        "Description": ""
+    },
+    {
+        "Id": "275",
+        "Name": "Boob Sex",
+        "Description": ""
+    },
+    {
+        "Id": "276",
+        "Name": "Pocky Game",
+        "Description": "Cách gọi khác là Pocky Kiss"
+    },
+    {
+        "Id": "277",
+        "Name": "School Girl",
+        "Description": "Nữ sinh"
+    },
+    {
+        "Id": "278",
+        "Name": "Light Novel",
+        "Description": ""
+    },
+    {
+        "Id": "279",
+        "Name": "Drunk",
+        "Description": "Say xỉn"
+    },
+    {
+        "Id": "280",
+        "Name": "Creepy",
+        "Description": "Rùng mình, sỡ hẽi"
+    },
+    {
+        "Id": "281",
+        "Name": "Official",
+        "Description": "Hàng chính thức"
+    },
+    {
+        "Id": "282",
+        "Name": "Spin-off",
+        "Description": ""
+    },
+    {
+        "Id": "283",
+        "Name": "Bath",
+        "Description": "Bồn tắm"
+    },
+    {
+        "Id": "284",
+        "Name": "Mangaka",
+        "Description": "Tác giả manga"
+    },
+    {
+        "Id": "285",
+        "Name": "Yuri Crush",
+        "Description": "Bạn có đang crush một ai không?Tag này có nghĩa là vậy đấy, nhưng là gái crush gái, nên ta có tag Yuri Crush"
+    },
+    {
+        "Id": "286",
+        "Name": "NSFW",
+        "Description": "Viết tắt của Not safe/suitable for work. Về cơ bản ám chỉ nội dung nhạy cảm, không nên xem khi có người khác ở bên cạnh.Không áp dụng cho truyện nằm trong trang R18, vì R18 vốn NSFW sẵn rồi."
+    },
+    {
+        "Id": "287",
+        "Name": "Subtext",
+        "Description": "Ẩn ý, dành cho những bộ có một ẩn ý về mối quan hệ lãng mạn của 2 người, nhưng chưa được canon."
+    },
+    {
+        "Id": "288",
+        "Name": "Food",
+        "Description": "Đồ ăn"
+    },
+    {
+        "Id": "289",
+        "Name": "Mermaid",
+        "Description": "Mỹ nhân ngư"
+    },
+    {
+        "Id": "290",
+        "Name": "Drugs",
+        "Description": "Chơi thuốc, hoặc bị chuốc, hoặc vô tình"
+    },
+    {
+        "Id": "291",
+        "Name": "Tailsex",
+        "Description": "Dùng đuôi sex"
+    },
+    {
+        "Id": "292",
+        "Name": "Zombies",
+        "Description": "Zombie"
+    },
+    {
+        "Id": "293",
+        "Name": "Childification",
+        "Description": "Trẻ hóa"
+    },
+    {
+        "Id": "294",
+        "Name": "Prostitution",
+        "Description": "Mại dâm"
+    },
+    {
+        "Id": "295",
+        "Name": "Bullying",
+        "Description": "Bắt nạt"
+    },
+    {
+        "Id": "296",
+        "Name": "Amnesia",
+        "Description": "Mất trí nhớ"
+    },
+    {
+        "Id": "297",
+        "Name": "Time Travel",
+        "Description": "Du hành thời gian"
+    },
+    {
+        "Id": "298",
+        "Name": "Gyaru",
+        "Description": "Đọc nhiều thì biết thôi :v"
+    },
+    {
+        "Id": "299",
+        "Name": "Sequel",
+        "Description": "Phần tiếp theo"
+    },
+    {
+        "Id": "300",
+        "Name": "Disability",
+        "Description": "Khuyết tật"
+    },
+    {
+        "Id": "301",
+        "Name": "Hypnosis",
+        "Description": "Thôi miên"
+    },
+    {
+        "Id": "302",
+        "Name": "Autobiographical",
+        "Description": "Tự truyện của chính tác giả"
+    },
+    {
+        "Id": "303",
+        "Name": "Feet",
+        "Description": "Chân"
+    },
+    {
+        "Id": "304",
+        "Name": "Player",
+        "Description": "phắc gơn =))"
+    },
+    {
+        "Id": "305",
+        "Name": "Delinquent",
+        "Description": "Tag dành cho những bộ có học sinh có xu hướng vi phạm (bỏ học, hút thuốc, đánh lộn...)"
+    },
+    {
+        "Id": "306",
+        "Name": "Lactation",
+        "Description": "Ngực chảy sữa"
+    },
+    {
+        "Id": "307",
+        "Name": "Orgy",
+        "Description": "Một bữa tiệc với rất nhiều người ( ͡° ͜ʖ ͡°)"
+    },
+    {
+        "Id": "308",
+        "Name": "Alien",
+        "Description": "Người ngoài hành tinh"
+    },
+    {
+        "Id": "309",
+        "Name": "Swimsuits",
+        "Description": "Đồ bơi"
+    },
+    {
+        "Id": "310",
+        "Name": "Robot",
+        "Description": "Người máy"
+    },
+    {
+        "Id": "311",
+        "Name": "Deity",
+        "Description": "Thần"
+    },
+    {
+        "Id": "312",
+        "Name": "Stalking",
+        "Description": "Cách gọi khác là Stalker: kẻ theo dõi."
+    },
+    {
+        "Id": "313",
+        "Name": "Moderate amounts of sex",
+        "Description": "Sex vừa phải"
+    },
+    {
+        "Id": "314",
+        "Name": "Lots of sex",
+        "Description": "Sex nhiều"
+    },
+    {
+        "Id": "315",
+        "Name": "Biting",
+        "Description": "Cắn"
+    },
+    {
+        "Id": "316",
+        "Name": "Clones",
+        "Description": "Nhân bản"
+    },
+    {
+        "Id": "317",
+        "Name": "Prequel",
+        "Description": "Tiền truyện"
+    },
+    {
+        "Id": "318",
+        "Name": "Post-Apocalyptic",
+        "Description": "Hậu tận thế"
+    },
+    {
+        "Id": "319",
+        "Name": "Philosophical",
+        "Description": "Triết học"
+    },
+    {
+        "Id": "320",
+        "Name": "Omegaverse",
+        "Description": "Vũ trụ Omegaverse, còn được gọi là ABO - Alpha, Beta và OmegaGiới tính sinh học ngoài \"Nam và Nữ\" sẽ có có thêm \"Alpha, Beta và Omega\". ABO quyết định khả năng giao phối.Alpha - Có thể thụ thai cho cả Omega và Beta. Có \"tiết dục tố\" thu hút Omega..Omega - Chỉ có thể thụ thai từ Alpha. Có \"tiết dục tố\" thu hút Alpha. Có kỳ phát tình định kỳ..Beta - Có thể thụ thai cho/ từ beta khác nhưng không thể thụ thai cho Omega. Không có và cũng không bị ảnh hưởng bởi \"tiết dục tố\"."
+    },
+    {
+        "Id": "321",
+        "Name": "Amputee",
+        "Description": "Cụt tay, chân"
+    },
+    {
+        "Id": "322",
+        "Name": "Watersports",
+        "Description": "Thể thao nước... theo lẽ thường là thế.Nghĩa của nó ở đây là nước tiểu"
+    },
+    {
+        "Id": "323",
+        "Name": "Wholesome",
+        "Description": "Lành mạnh"
+    },
+    {
+        "Id": "324",
+        "Name": "Height Gap",
+        "Description": "Chênh lệch chiều cao"
+    },
+    {
+        "Id": "325",
+        "Name": "Idiot Couple",
+        "Description": "Cặp đôi ngốc ngếch"
+    },
+    {
+        "Id": "326",
+        "Name": "Assassin",
+        "Description": "Sát thủ"
+    },
+    {
+        "Id": "327",
+        "Name": "Transgender",
+        "Description": "Chuyển giới"
+    },
+    {
+        "Id": "328",
+        "Name": "Biographical",
+        "Description": "Cách gọi khác là True Story - dựa trên câu chuyện có thật.Tác phẩm dựa trên chính cuộc đời của tác giả được gọi là Autobiographical"
+    },
+    {
+        "Id": "329",
+        "Name": "Introspective",
+        "Description": "Nội tâm"
+    },
+    {
+        "Id": "330",
+        "Name": "Ninja",
+        "Description": ""
+    },
+    {
+        "Id": "331",
+        "Name": "Cross-dressing",
+        "Description": "Đảo trang (Mặc trang phục khác giới)"
+    },
+    {
+        "Id": "332",
+        "Name": "Beach",
+        "Description": "Biển"
+    },
+    {
+        "Id": "333",
+        "Name": "Depressing as fuck",
+        "Description": "Chán nản cùng cực"
+    },
+    {
+        "Id": "334",
+        "Name": "Space",
+        "Description": "Không gian"
+    },
+    {
+        "Id": "335",
+        "Name": "Hardcore",
+        "Description": "Nặng đô, cân nhắc trước khi xem"
+    },
+    {
+        "Id": "336",
+        "Name": "Witch",
+        "Description": "Phù thủy"
+    },
+    {
+        "Id": "337",
+        "Name": "Insane Amounts of Sex",
+        "Description": "D*t nhau điên cuồng Nặng hơn tag Lots of sex"
+    },
+    {
+        "Id": "338",
+        "Name": "Spanking",
+        "Description": "Đánh đòn"
+    },
+    {
+        "Id": "339",
+        "Name": "Abuse",
+        "Description": "Lạm dụng, ngược đãi"
+    },
+    {
+        "Id": "340",
+        "Name": "Non-moe art",
+        "Description": ""
+    },
+    {
+        "Id": "341",
+        "Name": "BHTT",
+        "Description": ""
+    },
+    {
+        "Id": "342",
+        "Name": "Web Novel",
+        "Description": ""
+    },
+    {
+        "Id": "343",
+        "Name": ">",
+        "Description": "Kí hiệu biểu thị cho truyện đọc từ trái qua phải.Không áp dụng cho truyện đã có tag Manhua hay Manhwa."
+    },
+    {
+        "Id": "344",
+        "Name": "Chibi",
+        "Description": ""
+    },
+    {
+        "Id": "345",
+        "Name": "Anilingus",
+        "Description": ""
+    },
+    {
+        "Id": "346",
+        "Name": "Selfcest",
+        "Description": ""
     }
 ]
 
-},{}],64:[function(require,module,exports){
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.Main = exports.getExportVersion = exports.TelegramApi = exports.TelegramEndpoint = exports.DOMAIN = void 0;
-const time_1 = require("./utils/time");
-exports.DOMAIN = 'https://hoang3409.link/api/';
-exports.TelegramEndpoint = 'https://api.telegram.org/';
-exports.TelegramApi = '6458222681:AAEy9Q-qHskCvymzy3JYWxu-uM1jdC16cdk';
-const BASE_VERSION = '1.7.0';
-const getExportVersion = (EXTENSION_VERSION) => {
-    return BASE_VERSION.split('.').map((x, index) => Number(x) + Number(EXTENSION_VERSION.split('.')[index])).join('.');
-};
-exports.getExportVersion = getExportVersion;
-class Main {
-    constructor(cheerio) {
-        this.cheerio = cheerio;
-        this.requestsPerSecond = 5;
-        this.requestTimeout = 20000;
-        this.requestManager = App.createRequestManager({
-            requestsPerSecond: this.requestsPerSecond,
-            requestTimeout: this.requestTimeout,
-            interceptor: {
-                interceptRequest: async (request) => {
-                    request.headers = {
-                        ...(request.headers ?? {}),
-                        ...{
-                            'referer': this.HostDomain
-                        }
-                    };
-                    return request;
-                },
-                interceptResponse: async (response) => {
-                    return response;
-                }
-            }
-        });
-        this.stateManager = App.createSourceStateManager();
-    }
-    async getHomePageSections(sectionCallback) {
-        const sections = [];
-        sections.push(App.createHomeSection({
-            id: 'new',
-            title: 'Mới thêm',
-            containsMoreItems: true,
-            type: ''
-        }));
-        const promises = [];
-        for (const section of sections) {
-            // Let the app load empty tagSections
-            sectionCallback(section);
-            let apiPath, params;
-            switch (section.id) {
-                default:
-                    apiPath = `${exports.DOMAIN}AnimeMoi`;
-                    params = `?host=${this.Host}&page=1`;
-                    break;
-            }
-            const request = App.createRequest({
-                url: apiPath,
-                param: params,
-                method: 'GET'
-            });
-            // Get the section data
-            const response = await this.requestManager.schedule(request, 1);
-            const result = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-            const items = [];
-            for (const item of result) {
-                items.push(App.createPartialSourceManga({
-                    title: item.titles[0],
-                    image: item.cover,
-                    mangaId: this.UseId ? item.id.toString() : item.url,
-                    subtitle: undefined
-                }));
-            }
-            section.items = items;
-            sectionCallback(section);
-        }
-        await Promise.all(promises);
-    }
-    async getViewMoreItems(homepageSectionId, metadata) {
-        const page = metadata?.page ?? 1;
-        const request = App.createRequest({
-            url: `${exports.DOMAIN}AnimeMoi`,
-            param: `?host=${this.Host}&page=${page}`,
-            method: 'GET'
-        });
-        const data = await this.requestManager.schedule(request, 1);
-        const result = typeof data.data === 'string' ? JSON.parse(data.data) : data.data;
-        const items = [];
-        for (const item of result) {
-            items.push(App.createPartialSourceManga({
-                title: item.titles[0],
-                image: item.cover,
-                mangaId: this.UseId ? item.id.toString() : item.url,
-                subtitle: undefined
-            }));
-        }
-        // If no series were returned we are on the last page
-        metadata = items.length === 0 ? undefined : { page: page + 1 };
-        return App.createPagedResults({
-            results: items,
-            metadata: metadata
-        });
-    }
-    async getMangaDetails(mangaId) {
-        const request = App.createRequest({
-            url: `${exports.DOMAIN}AnimeMoi/Manga?idComic=${mangaId}&host=${this.Host}`,
-            method: 'GET'
-        });
-        const response = await this.requestManager.schedule(request, 1);
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        const titles = [];
-        const tags = [];
-        for (const item of data.titles) {
-            titles.push(item);
-        }
-        if (data.genres) {
-            for (const item of data.genres) {
-                const foundGenre = this.Tags.find((genre) => genre.Id === item.toString());
-                if (foundGenre) {
-                    tags.push(App.createTag({
-                        id: foundGenre.Id,
-                        label: foundGenre.Name
-                    }));
-                }
-            }
-        }
-        return App.createSourceManga({
-            id: mangaId,
-            mangaInfo: App.createMangaInfo({
-                desc: data.description || 'Đang cập nhật',
-                image: data.cover,
-                status: data.status == 2 ? 'Đang cập nhật' : 'Xong',
-                titles: titles,
-                author: data.author ?? 'Đang cập nhật',
-                artist: undefined,
-                tags: [App.createTagSection({ label: 'genres', tags: tags, id: '0' })]
-            })
-        });
-    }
-    async getChapters(mangaId) {
-        const request = App.createRequest({
-            url: `${exports.DOMAIN}AnimeMoi/Chapter`,
-            param: `?idComic=${mangaId}&host=${this.Host}`,
-            method: 'GET'
-        });
-        const response = await this.requestManager.schedule(request, 1);
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        const chapters = [];
-        for (const item of data) {
-            const time = (0, time_1.convertTime)(item.timeUpdate);
-            time.setHours(time.getHours() + 7);
-            chapters.push(App.createChapter({
-                id: this.UseId ? item.id.toString() : item.url,
-                chapNum: item.numChap ?? item.chapNumber,
-                name: item.title,
-                time: time
-            }));
-        }
-        return chapters;
-    }
-    async getChapterDetails(mangaId, chapterId) {
-        const request = App.createRequest({
-            url: `${exports.DOMAIN}AnimeMoi/ChapterDetail`,
-            param: `?idChapter=${chapterId}&host=${this.Host}`,
-            method: 'GET'
-        });
-        const response = await this.requestManager.schedule(request, 1);
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        const imagePromises = data.map(async (image) => {
-            let img = image.toString();
-            if (img.startsWith('//')) {
-                img = 'https:' + img;
-            }
-            img = img.replace('http:', 'https:');
-            if (!img.includes('http')) {
-                return await this.getLinkImage(img);
-            }
-            return img;
-        });
-        const images = await Promise.all(imagePromises);
-        return App.createChapterDetails({
-            id: chapterId,
-            mangaId: mangaId,
-            pages: images
-        });
-    }
-    async getSearchResults(query, metadata) {
-        const page = metadata?.page ?? 1;
-        const postData = {
-            query: '',
-            page: page,
-            genres: [],
-            exclude: [],
-            status: 0
-        };
-        if (query.title) {
-            postData.query = encodeURIComponent(query.title);
-        }
-        if (query.includedTags[0]) {
-            query.includedTags.forEach((genre) => {
-                postData.genres.push(genre.id);
-            });
-        }
-        if (query.excludedTags[0]) {
-            query.excludedTags.forEach((genre) => {
-                postData.exclude.push(genre.id);
-            });
-        }
-        const request = App.createRequest({
-            method: 'POST',
-            url: `${exports.DOMAIN}AnimeMoi/Search?host=${this.Host}`,
-            data: postData,
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        const response = await this.requestManager.schedule(request, 1);
-        const result = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        const tiles = [];
-        result.forEach((item) => {
-            tiles.push(App.createPartialSourceManga({
-                title: item.titles[0],
-                image: item.cover,
-                mangaId: this.UseId ? item.id.toString() : item.url,
-                subtitle: undefined
-            }));
-        });
-        metadata = tiles.length === 0 ? undefined : { page: page + 1 };
-        return App.createPagedResults({
-            results: tiles,
-            metadata
-        });
-    }
-    async getSearchTags() {
-        const result = [];
-        const tags = this.Tags.map((x) => App.createTag({
-            id: x.Id.toString(),
-            label: x.Name
-        }));
-        let label = 'Thể loại';
-        if (this.SearchWithGenres) {
-            label += ' - Có thể tìm kiếm với nhiều thể loại';
-        }
-        else {
-            label += ' - Chỉ có thể tìm kiếm với 1 thể loại';
-        }
-        if (this.SearchWithTitleAndGenre) {
-            label += '- Có thể tìm kiếm với tên truyện cùng với thể loại';
-        }
-        else {
-            label += '- Không thể tìm kiếm cùng lúc tên truyện và thể loại';
-        }
-        result.push(App.createTagSection({
-            id: '0',
-            label: label,
-            tags: tags
-        }));
-        return result;
-    }
-    async getLinkImage(id) {
-        const request = App.createRequest({
-            url: `${exports.TelegramEndpoint}bot${exports.TelegramApi}/getFile?file_id=${id}`,
-            method: 'GET'
-        });
-        const response = await this.requestManager.schedule(request, 0);
-        const data = typeof response.data === 'string' ? JSON.parse(response.data) : response.data;
-        return `${exports.TelegramEndpoint}file/bot${exports.TelegramApi}/${data.result.file_path}`;
-    }
-}
-exports.Main = Main;
-
-},{"./utils/time":65}],65:[function(require,module,exports){
+},{}],65:[function(require,module,exports){
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.convertTime = void 0;
@@ -1695,5 +2572,5 @@ function convertTime(time) {
 }
 exports.convertTime = convertTime;
 
-},{}]},{},[62])(62)
+},{}]},{},[63])(63)
 });
